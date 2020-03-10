@@ -59,25 +59,35 @@ const GridPiece = ({
       }}
       className="gridPiece"
       style={{
-        backgroundColor: shown && isbomb ? "red" : flagged ? "yellow" : "green"
+        backgroundColor: shown && isbomb ? "red" : flagged ? "yellow" : "grey"
       }}
     >
-      {shown ? number : null}
+      {shown && !isbomb ? number : null}
     </div>
   );
 };
 
 const UseGrid = () => {
+  const safeSpots = [];
   const createGrid = () => {
-    const gridStarter = new Array(10).fill(0).map(() =>
-      new Array(15).fill(0).map(() => {
+    const gridStarter = new Array(10).fill(0).map((b, x) =>
+      new Array(15).fill(0).map((a, y) => {
+        const type = Math.floor(Math.random() * 2);
+        if (type === 0) safeSpots.push({ x, y });
         return {
           flagged: false,
           shown: false,
-          val: Math.floor(Math.random() * 2)
+          val: type
         };
       })
     );
+
+    const { x: safeX, y: safeY } = safeSpots[
+      Math.floor(Math.random() * safeSpots.length)
+    ];
+
+    gridStarter[safeX][safeY].shown = true;
+
     return gridStarter.map((grid, i) =>
       grid.map((piece, j) => {
         return { ...piece, bombCount: CountBombs(gridStarter, i, j) };
@@ -107,9 +117,9 @@ const EndScreen = ({ state, resetGame }) => {
       style={{
         textAlign: "center",
         position: "absolute",
-        color: "red",
+        color: state === "win" ? "green" : "pink",
         fontSize: "2em",
-        top: "5%",
+        top: "10%",
         left: "25%",
         height: "20%"
       }}
@@ -140,27 +150,42 @@ function App() {
     resetGrid();
   };
   return (
-    <div className="App">
-      {gameState !== "" ? (
-        <EndScreen gameState={gameState} resetGame={resetGame} />
-      ) : null}
-      {grid.map((col, index1) => (
-        <div key={index1} style={{ display: "flex" }}>
-          {col.map((row, index2) => (
-            <GridPiece
-              key={index2}
-              shown={row.shown}
-              number={row.bombCount}
-              isbomb={row.val === 1 ? true : false}
-              index1={index1}
-              index2={index2}
-              clicked={clicked}
-              flagged={row.flagged}
-              flag={flagGridPiece}
-            />
+    <div id="container">
+      <div className="App">
+        <h1 id="title">Minesweeper made in React!</h1>
+        {gameState !== "" ? (
+          <EndScreen gameState={gameState} resetGame={resetGame} />
+        ) : null}
+        <div className="grid">
+          {grid.map((col, index1) => (
+            <div key={index1} style={{ display: "flex" }}>
+              {col.map((row, index2) => (
+                <GridPiece
+                  key={index2}
+                  shown={row.shown}
+                  number={row.bombCount}
+                  isbomb={row.val === 1 ? true : false}
+                  index1={index1}
+                  index2={index2}
+                  clicked={clicked}
+                  flagged={row.flagged}
+                  flag={flagGridPiece}
+                />
+              ))}
+            </div>
           ))}
         </div>
-      ))}
+        <p>
+          Developed by Giulio Rossi. Check out more at{" "}
+          <a
+            href="https://ciuffi.dev"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Ciuffi.dev
+          </a>
+        </p>
+      </div>
     </div>
   );
 }
