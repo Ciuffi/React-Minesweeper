@@ -107,8 +107,12 @@ const UseGrid = () => {
     setGrid([...grid]);
   };
 
+  const showGrid = () => {
+    grid.map(grid => grid.map(piece => (piece.shown = true)));
+  };
+
   const resetGrid = () => setGrid(createGrid());
-  return [grid, setGridPos, resetGrid, flagGridPiece];
+  return [grid, setGridPos, resetGrid, flagGridPiece, showGrid];
 };
 
 const EndScreen = ({ state, resetGame }) => {
@@ -131,13 +135,14 @@ const EndScreen = ({ state, resetGame }) => {
 };
 
 function App() {
-  const [grid, setGridPos, resetGrid, flagGridPiece] = UseGrid();
+  const [grid, setGridPos, resetGrid, flagGridPiece, showGrid] = UseGrid();
   const [gameState, setGameState] = useState("");
   const clicked = (x, y) => {
     if (gameState !== "") return;
     setGridPos(x, y);
     if (grid[x][y].val === 1) {
       setGameState("lose");
+      showGrid();
       return;
     }
     if (checkWin(grid)) {
