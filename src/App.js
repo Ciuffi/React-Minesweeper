@@ -59,7 +59,7 @@ const GridPiece = ({
       }}
       className="gridPiece"
       style={{
-        backgroundColor: shown && isbomb ? "red" : flagged ? "yellow" : "grey"
+        backgroundColor: shown && isbomb ? "red" : flagged ? "yellow" : null
       }}
     >
       {shown && !isbomb ? number : null}
