@@ -181,6 +181,7 @@ function App() {
             href="https://ciuffi.dev"
             rel="noopener noreferrer"
             target="_blank"
+            style={{ color: "lightblue" }}
           >
             Ciuffi.dev
           </a>
