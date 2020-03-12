@@ -28,18 +28,6 @@ const CountBombs = (grid, x, y) => {
   return ret;
 };
 
-const checkWin = grid => {
-  for (let i = 0; i < grid.length; i++) {
-    for (let j = 0; j < grid[i].length; j++) {
-      const piece = grid[i][j];
-      if (piece.shown === false && piece.val === 0) {
-        return false;
-      }
-    }
-  }
-  return true;
-};
-
 const GridPiece = ({
   number,
   clicked,
@@ -48,11 +36,15 @@ const GridPiece = ({
   shown,
   isbomb,
   flagged,
-  flag
+  flag,
+  touched,
+  touchCancelled
 }) => {
   return (
     <div
       onClick={() => clicked(index1, index2)}
+      onTouchStart={() => touched}
+      onTouchCancel={() => touchCancelled}
       onContextMenu={e => {
         e.preventDefault();
         flag(index1, index2);
@@ -62,22 +54,30 @@ const GridPiece = ({
         backgroundColor: shown && isbomb ? "red" : flagged ? "yellow" : null
       }}
     >
-      {shown && !isbomb ? number : null}
+      {shown && !isbomb
+        ? number
+        : flagged
+        ? "🚩"
+        : isbomb && shown
+        ? "💣"
+        : null}
     </div>
   );
 };
 
 const UseGrid = () => {
   const safeSpots = [];
+  const bombs = [];
   const createGrid = () => {
     const gridStarter = new Array(10).fill(0).map((b, x) =>
       new Array(15).fill(0).map((a, y) => {
-        const type = Math.floor(Math.random() * 2);
-        if (type === 0) safeSpots.push({ x, y });
+        const type = Math.floor(Math.random() * 7);
+        if (type > 0) safeSpots.push({ x, y });
+        if (type === 0) bombs.push({ x, y });
         return {
           flagged: false,
           shown: false,
-          val: type
+          val: type === 0 ? 1 : 0
         };
       })
     );
@@ -87,7 +87,6 @@ const UseGrid = () => {
     ];
 
     gridStarter[safeX][safeY].shown = true;
-
     return gridStarter.map((grid, i) =>
       grid.map((piece, j) => {
         return { ...piece, bombCount: CountBombs(gridStarter, i, j) };
@@ -97,8 +96,41 @@ const UseGrid = () => {
 
   const [grid, setGrid] = useState(createGrid());
 
-  const setGridPos = (x, y) => {
+  const clearSpecificNeighbours = (grid, neighbours) => {
+    if (!neighbours.length) return;
+    const { x, y } = neighbours[0];
     grid[x][y].shown = true;
+    setGrid([...grid]);
+    setTimeout(
+      () => clearSpecificNeighbours(grid, [...neighbours.slice(1)]),
+      0.01
+    );
+  };
+
+  const clearNeighbours = (grid, x, y, visited) => {
+    const neighbours = WhoAreMyNeighbours(grid, x, y);
+    if (grid[x][y].bombCount !== 0) return;
+    const showers = [];
+    neighbours.forEach(({ x, y, val }) => {
+      if (grid[x][y].bombCount === 0 && val === 0) {
+        showers.push({ x, y });
+      }
+    });
+    clearSpecificNeighbours(grid, showers);
+    if (visited.find(res => res.x === x && res.y === y)) return;
+    visited.push({ x, y });
+    setTimeout(() => {
+      showers.forEach(({ x, y }) => {
+        clearNeighbours(grid, x, y, visited);
+      });
+    }, 0.01);
+  };
+
+  const setGridPos = (x, y) => {
+    if (grid[x][y].flagged) return;
+    if (grid[x][y].shown) return;
+    grid[x][y].shown = true;
+    clearNeighbours(grid, x, y, []);
     setGrid([...grid]);
   };
 
@@ -112,30 +144,44 @@ const UseGrid = () => {
   };
 
   const resetGrid = () => setGrid(createGrid());
-  return [grid, setGridPos, resetGrid, flagGridPiece, showGrid];
+
+  const checkWin = () => {
+    safeSpots.filter(safeSpot => {
+      return !grid[safeSpot.x][safeSpot.y].shown;
+    });
+    return safeSpots.length === 0;
+  };
+  return [grid, setGridPos, resetGrid, flagGridPiece, showGrid, checkWin];
 };
 
-const EndScreen = ({ state, resetGame }) => {
+const EndScreen = ({ gameState, resetGame }) => {
   return (
     <div
       style={{
         textAlign: "center",
         position: "absolute",
-        color: state === "win" ? "green" : "pink",
+        color: gameState === "win" ? "green" : "pink",
         fontSize: "2em",
         top: "10%",
         left: "25%",
         height: "20%"
       }}
     >
-      <h1>{state === "win" ? "You won!" : "You lose."}</h1>
+      <h1>{gameState === "win" ? "You won!" : "You lose."}</h1>
       <button onClick={() => resetGame()}>Play Again?</button>
     </div>
   );
 };
 
 function App() {
-  const [grid, setGridPos, resetGrid, flagGridPiece, showGrid] = UseGrid();
+  const [
+    grid,
+    setGridPos,
+    resetGrid,
+    flagGridPiece,
+    showGrid,
+    checkWin
+  ] = UseGrid();
   const [gameState, setGameState] = useState("");
   const clicked = (x, y) => {
     if (gameState !== "") return;
@@ -147,6 +193,7 @@ function App() {
     }
     if (checkWin(grid)) {
       setGameState("win");
+      return;
     }
   };
 
@@ -154,10 +201,20 @@ function App() {
     setGameState("");
     resetGrid();
   };
+
+  let buttonPressTimer = null;
+  const handleLongCancel = () => {
+    clearTimeout(buttonPressTimer);
+  };
+
+  const handleLongPress = (x, y) => {
+    buttonPressTimer = setTimeout(() => flagGridPiece(x, y), 1000);
+  };
   return (
     <div id="container">
       <div className="App">
         <h1 id="title">Minesweeper made in React!</h1>
+        <p>Left click to reveal and right click to flag.</p>
         {gameState !== "" ? (
           <EndScreen gameState={gameState} resetGame={resetGame} />
         ) : null}
@@ -175,6 +232,8 @@ function App() {
                   clicked={clicked}
                   flagged={row.flagged}
                   flag={flagGridPiece}
+                  touched={handleLongPress}
+                  touchCancelled={handleLongCancel}
                 />
               ))}
             </div>
